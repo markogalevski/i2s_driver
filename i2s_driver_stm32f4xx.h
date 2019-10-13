@@ -38,10 +38,10 @@ typedef struct
 
 typedef struct
 {
-  i2s_t * instance;
+  i2s_t *instance;
   i2s_init_struct_t init;
-  uint32_t * p_tx_buffer;
-  uint32_t * p_rx_buffer;
+  uint32_t *p_tx_buffer;
+  uint32_t *p_rx_buffer;
   volatile uint32_t tx_len;
   volatile uint32_t rx_len;
   uint32_t state;
@@ -49,17 +49,17 @@ typedef struct
   void (*i2s_rx)(i2s_handle_t *);
 } i2s_handle_t;
 
-void i2s_init(i2s_handle_t * hi2s);
+void i2s_init(i2s_handle_t *hi2s);
 
-void i2s_transmit_it(i2s_handle_t * hi2s, uint32_t * data, uint32_t data_len);
+void i2s_transmit_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
 
 void i2s_transmit_dma();
 
-void i2s_receive_it(i2s_handle_t * hi2s, uint32_t * data, uint32_t data_len);
+void i2s_receive_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
 
 void i2s_receive_dma();
 
-void i2s_irq_handler(i2s_handle_t * hi2s);
+void i2s_irq_handler(i2s_handle_t *hi2s);
 
-void i2s_deinit(i2s_handle_t * hi2s);
+void i2s_deinit(i2s_handle_t *hi2s);
 #endif /*_I2S_DRIVER */

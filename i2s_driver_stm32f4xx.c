@@ -16,53 +16,51 @@ void i2s_init(i2s_handle_t * hi2s)
   // all of the prerequisites on an STM32F4 chip: RCC and GPIO_AF setup.
   // It ensures the I2S device is off before setting all of the registers to
   // their requested values as per the init structure.
-  // Single writes to registers via bit overlayed temp values are used,
+  // Single writes to registers via bit overlayed config_reg values are used,
   // just to be sure.
   // The i2s format determines to which implementation the low level transfer
   // function pointer points.
   // The device is then enabled.
 
-    i2s_t * p_i2s =  (i2s_t * ) hi2s->instance;
-    i2s_init_struct_t * p_init = (i2s_init_struct_t *) hi2s->init;
+    i2s_t *p_i2s =  (i2s_t *) hi2s->instance;
+    i2s_init_struct_t *p_init = (i2s_init_struct_t *) hi2s->init;
 
     //RCC enables for the required GPIO ports
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN_Msk | RCC_AHB1ENR_GPIOBEN_Msk;
-    // GPIO Alternate Function setup
-    i2s_gpio_init(p_i2s);
 
-    //Selection of which SPI/I2S RCC to enable
-    uint32_t temp = 0;
+    i2s_gpio_init(p_i2s); // GPIO Alternate Function setup
+
+
+    uint32_t config_reg = 0; //Selection of which SPI/I2S RCC to enable
     if (p_i2s == I2S2)
     {
-        temp = RCC_APB1ENR_SPI2EN_Msk;
+        config_reg = RCC_APB1ENR_SPI2EN_Msk;
     }
     else if (p_i2s->instance == I2S3)
     {
-        temp = RCC_APB1ENR_SPI3EN_Msk;
+        config_reg = RCC_APB1ENR_SPI3EN_Msk;
     }
-    RCC->APB1ENR |= temp;
+    RCC->APB1ENR |= config_reg;
 
 
     p_i2s->I2SCFGR &= ~(SPI_I2SCFGR_I2SE_Msk); //disable I2S
     p_i2s->I2SCFGR |= (SPI_I2SCFGR_I2SMOD_Msk); //ensure i2s mode is on
 
-    //Configure registers according to passed struct
-    temp = 0;
-    temp |= p_init->config << SPI_I2SCFGR_I2SCFG_Pos
+    config_reg = 0;
+    config_reg |= p_init->config << SPI_I2SCFGR_I2SCFG_Pos
            | p_init->pcm_sync << SPI_I2SCFGR_PCMSYNC_Pos
            | p_init->i2s_std << SPI_I2SCFGR_I2SSTD_Pos
            | p_init->clock_pol << SPI_I2SCFGR_CKPOL_Pos
            | p_init->data_len << SPI_I2SCFGR_DATLEN_Pos
            | p_init->ch_len << SPI_I2SCFGR_CHLEN_Pos;
-    p_i2s->I2SCFGR = temp;
+    p_i2s->I2SCFGR = config_reg;
 
-    temp = 0;
-    temp |= p_init->master_clock_enable << SPI_I2SPR_MCKOE_Pos
+    config_reg = 0;
+    config_reg |= p_init->master_clock_enable << SPI_I2SPR_MCKOE_Pos
            | p_init->prescaler_odd << SPI_I2SPR_ODD_Pos
            | p_init->prescaler;
-    p_i2s->I2SPR = temp;
+    p_i2s->I2SPR = config_reg;
 
-    //assignment of transmit function pointers
     if (p_init->i2s_std == 0)
     {
       hi2s->i2s_tx = i2s_tx_phillips;
@@ -88,7 +86,7 @@ void i2s_init(i2s_handle_t * hi2s)
 }
 
 
-static void i2s_gpio_init(i2s_t * p_i2s)
+static void i2s_gpio_init(i2s_t *p_i2s)
 {
   // Makes writes to the appropriate GPIOAF registers to enable I2S2 or I2S3,
   // as per their implementation in the stm32f411xe manual.
@@ -116,7 +114,7 @@ static void i2s_gpio_init(i2s_t * p_i2s)
   }
 }
 
-void i2s_transmit_it(i2s_handle_t * hi2s, uint32_t * data, uint32_t data_len)
+void i2s_transmit_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
 {
   // Begins an interrupt based i2s transmission as master.
   // the tx data pointer and length are copied, while the rx ones are nullified.
@@ -141,7 +139,7 @@ void i2s_transmit_it(i2s_handle_t * hi2s, uint32_t * data, uint32_t data_len)
   }
 }
 
-void i2s_receive_it(i2s_handle_t * hi2s, uint32_t * data, uint32_t data_len)
+void i2s_receive_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
 {
   // Begins an interrupt based i2s reception as master.
   // the tx data pointer and length are copied, while the rx ones are nullified.
@@ -171,7 +169,7 @@ void i2s_transmit_dma(){}
 
 void i2s_receive_dma(){}
 
-void i2s_irq_handler(i2s_handle_t * hi2s)
+void i2s_irq_handler(i2s_handle_t *hi2s)
 {
   // this IRQ handler should be called within the appropriate SPIx_IRQHandler.
   // Naturally, ensure the hi2s is a global variable.
@@ -211,7 +209,7 @@ void i2s_irq_handler(i2s_handle_t * hi2s)
 
 }
 
-static void i2s_tx_phillips(i2s_handle_t * self)
+static void i2s_tx_phillips(i2s_handle_t *self)
 {
   // Places data in the DR register of the I2S device per the specifications
   // in chapter 20 of the reference manual.
@@ -246,7 +244,7 @@ static void i2s_tx_phillips(i2s_handle_t * self)
   }
 }
 
-static void i2s_rx_phillips(i2s_handle_t * self)
+static void i2s_rx_phillips(i2s_handle_t *self)
 {
     // Places data in the DR register of the I2S device per the specifications
     // in chapter 20 of the reference manual.
@@ -281,7 +279,7 @@ static void i2s_rx_phillips(i2s_handle_t * self)
   }
 }
 
-static void i2s_tx_lsb(i2s_handle_t * self)
+static void i2s_tx_lsb(i2s_handle_t *self)
 {
     // Places data in the DR register of the I2S device per the specifications
     // in chapter 20 of the reference manual.
@@ -316,7 +314,7 @@ static void i2s_tx_lsb(i2s_handle_t * self)
     }
 }
 
-static void i2s_rx_lsb(i2s_handle_t * self)
+static void i2s_rx_lsb(i2s_handle_t *self)
 {
     // Places data in the DR register of the I2S device per the specifications
     // in chapter 20 of the reference manual.
@@ -340,7 +338,7 @@ static void i2s_rx_lsb(i2s_handle_t * self)
   }
 }
 
-void i2s_deinit(i2s_handle_t * hi2s)
+void i2s_deinit(i2s_handle_t *hi2s)
 {
   uint32_t mode = (hi2s->instance->I2SCFGR & (SPI_I2SCFGR_I2SCFG_Msk)) >> SPI_I2SCFGR_I2SCFG_Pos;
   uint32_t counter = 0;
