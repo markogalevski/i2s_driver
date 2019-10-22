@@ -1,5 +1,5 @@
-#ifndef _I2S_DRIVER
-#define _I2S_DRIVER
+#ifndef _I2S_H
+#define _I2S_H
 
 #include "stm32f411xe.h"
 #define I2S2 ((i2s_t *) SPI2_BASE)
@@ -9,6 +9,11 @@
 #define I2S_STATE_TX 1
 #define I2S_STATE_RX 2
 #define I2S_STATE_NULL 3
+
+#ifdef USE_DMA_I2S
+#include "dma_driver_stm32f4xx.h"
+#endif
+
 
 typedef struct
 {
@@ -53,13 +58,17 @@ void i2s_init(i2s_handle_t *hi2s);
 
 void i2s_transmit_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
 
-void i2s_transmit_dma();
-
 void i2s_receive_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
 
+#ifdef USE_DMA_I2S
+void i2s_transmit_dma(i2s_handle_t *hi2s, dma_handle_t *hdma);
+void i2s_receive_dma(i2s_handle_t *hi2s, dma_handle_t *hdma);
+#else
+void i2s_transmit_dma();
 void i2s_receive_dma();
+#endif
+
 
 void i2s_irq_handler(i2s_handle_t *hi2s);
-
 void i2s_deinit(i2s_handle_t *hi2s);
-#endif /*_I2S_DRIVER */
+ #endif /*_I2S_DRIVER */

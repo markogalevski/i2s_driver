@@ -1,16 +1,87 @@
 #include "i2s_driver_stm32f4xx.h"
 
-static void i2s_gpio_init(i2s_t * p_i2s);
-static void i2s_tx_phillips(i2s_handle_t * self);
-static void i2s_rx_phillips(i2s_handle_t * self);
+#ifdef USE_DMA_I2S
+
+
+void i2s_transmit_dma(i2s_handle_t *hi2s, dma_handle_t * hdma)
+{
+  hdma->p_memory0 = hi2s->p_tx_buffer;
+  hdma->p_periph = hi2s->instance->DR;
+  hdma->data_length = hi2s->data_len;
+
+  if (hi2s->instance == I2S2)
+  {
+    hdma->stream = DMA1_Stream3;
+    hdma->controller = DMA1;
+  }
+  else if (hi2s->instance == I2S3)
+  {
+    hdma->stream = DMA1_Stream0;
+    hdma->controller = DMA1;
+  }
+  hdma->init->transfer_dir = DMA_DIR_M2P;
+  hdma->init->channel_select = DMA_CH_0;
+  hdma->init->peripheral_flow_ctrl = FLOW_DMA;
+  hdma->init->circ_mode_en = EN_RESET;
+  hdma->init->double_buffer_en = EN_RESET;
+  hdma->init->peripheral_data_size = PSIZE_HWORD;
+  hdma->init->peripheral_increment_mode = PAR_FIXED;
+  hdma->init->memory_data_size = MSIZE_HWORD;
+  hdma->init->memory_increment_mode = MAR_INC;
+  hdma->init->peripheral_burst_transfer = DMA_BURST_SINGLE;
+  hdma->init->memory_burst_transfer = DMA_BURST_SINGLE;
+
+  hdma->fifo_config->direct_mode_disable = FIFO_DIRECT_ENABLE;
+
+  dma_transfer(hdma);
+}
+
+void i2s_receive_dma(i2s_handle_t *hi2s, dma_handle_t *hdma)
+{
+    hdma->p_memory0 = hi2s->p_rx_buffer;
+    hdma->p_periph = hi2s->instance->DR;
+    hdma->data_length = hi2s->data_len;
+
+    if (hi2s->instance == I2S2)
+    {
+      hdma->stream = DMA1_Stream4;
+      hdma->controller = DMA1;
+    }
+    else if (hi2s->instance == I2S3)
+    {
+      hdma->stream = DMA1_Stream7;
+      hdma->controller = DMA1;
+    }
+    hdma->init->transfer_dir = DMA_DIR_P2M;
+    hdma->init->channel_select = DMA_CH_0;
+    hdma->init->peripheral_flow_ctrl = FLOW_DMA;
+    hdma->init->circ_mode_en = EN_RESET;
+    hdma->init->double_buffer_en = EN_RESET;
+    hdma->init->peripheral_data_size = PSIZE_HWORD;
+    hdma->init->peripheral_increment_mode = PAR_FIXED;
+    hdma->init->memory_data_size = MSIZE_HWORD;
+    hdma->init->memory_increment_mode = MAR_INC;
+    hdma->init->peripheral_burst_transfer = DMA_BURST_SINGLE;
+    hdma->init->memory_burst_transfer = DMA_BURST_SINGLE;
+
+    hdma->fifo_config->direct_mode_disable = FIFO_DIRECT_ENABLE;
+
+    dma_transfer(hdma);
+}
+#endif
+
+static void i2s_gpio_init(i2s_t *p_i2s);
+static void i2s_tx_phillips(i2s_handle_t *self);
+static void i2s_rx_phillips(i2s_handle_t *self);
 static void (*i2s_tx_msb)(i2s_handle_t *) = i2s_tx_phillips;
 static void (*i2s_rx_msb)(i2s_handle_t *) = i2s_rx_phillips;
-static void i2s_tx_lsb(i2s_handle_t * self);
-static void i2s_rx_lsb(i2s_handle_t * self);
+static void i2s_tx_lsb(i2s_handle_t *self);
+static void i2s_rx_lsb(i2s_handle_t *self);
 static void (*i2s_tx_pcm)(i2s_handle_t *) = i2s_tx_phillips;
 static void (*i2s_rx_pcm)(i2s_handle_t *) = i2x_rx_phillips;
 
-void i2s_init(i2s_handle_t * hi2s)
+
+void i2s_init(i2s_handle_t *hi2s);
 {
   // Init function takes the broader handle pointer, and first initialises
   // all of the prerequisites on an STM32F4 chip: RCC and GPIO_AF setup.
@@ -36,7 +107,7 @@ void i2s_init(i2s_handle_t * hi2s)
     {
         config_reg = RCC_APB1ENR_SPI2EN_Msk;
     }
-    else if (p_i2s->instance == I2S3)
+    else if (p_i2s == I2S3)
     {
         config_reg = RCC_APB1ENR_SPI3EN_Msk;
     }
@@ -84,8 +155,6 @@ void i2s_init(i2s_handle_t * hi2s)
 
     p_i2s->I2SCFGR |= SPI_I2SCFGR_I2SE_Msk; //enable peripheral
 }
-
-
 static void i2s_gpio_init(i2s_t *p_i2s)
 {
   // Makes writes to the appropriate GPIOAF registers to enable I2S2 or I2S3,
@@ -164,10 +233,7 @@ void i2s_receive_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
   }
 }
 
-//TODO: Implement DMA transfers
-void i2s_transmit_dma(){}
 
-void i2s_receive_dma(){}
 
 void i2s_irq_handler(i2s_handle_t *hi2s)
 {
@@ -389,4 +455,15 @@ void i2s_deinit(i2s_handle_t *hi2s)
       hi2s->instance->I2SCFGR &= ~(SPI_I2SCFGR_I2SE_Msk);
     }
   }
+}
+
+}
+
+__weak void i2s_transmit_dma()
+{
+while(1);
+}
+__weak void i2s_receive_dma()
+{
+while(1);
 }
