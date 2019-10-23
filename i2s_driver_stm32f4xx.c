@@ -233,8 +233,6 @@ void i2s_receive_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
   }
 }
 
-
-
 void i2s_irq_handler(i2s_handle_t *hi2s)
 {
   // this IRQ handler should be called within the appropriate SPIx_IRQHandler.
@@ -455,8 +453,6 @@ void i2s_deinit(i2s_handle_t *hi2s)
       hi2s->instance->I2SCFGR &= ~(SPI_I2SCFGR_I2SE_Msk);
     }
   }
-}
-
 }
 
 __weak void i2s_transmit_dma()
