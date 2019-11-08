@@ -39,30 +39,35 @@ typedef struct
   uint8_t prescaler;
   uint32_t master_clock_enable;
   uint32_t prescaler_odd;
-} i2s_init_struct_t;
+} i2s_init_t;
+
 
 typedef struct
 {
   i2s_t *instance;
-  i2s_init_struct_t init;
+  i2s_init_t init;
   uint32_t *p_tx_buffer;
   uint32_t *p_rx_buffer;
   volatile uint32_t tx_len;
   volatile uint32_t rx_len;
   uint32_t state;
-  void (*i2s_tx)(i2s_handle_t *);
-  void (*i2s_rx)(i2s_handle_t *);
+  void (*i2s_tx)(void *);
+  void (*i2s_rx)(void *);
 } i2s_handle_t;
 
 void i2s_init(i2s_handle_t *hi2s);
+
+void i2s_transmit_blocking(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
+
+void i2s_receive_blocking(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
 
 void i2s_transmit_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
 
 void i2s_receive_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
 
 #ifdef USE_DMA_I2S
-void i2s_transmit_dma(i2s_handle_t *hi2s, dma_handle_t *hdma);
-void i2s_receive_dma(i2s_handle_t *hi2s, dma_handle_t *hdma);
+void i2s_receive_dma(i2s_handle_t *hi2s, dma_handle_t *hdma, uint3_t *data, uint32_t data_len);
+void i2s_transmit_dma(i2s_handle_t *hi2s, dma_handle_t *hdma, uint32_t *data, uint32_t data_len);
 #else
 void i2s_transmit_dma();
 void i2s_receive_dma();

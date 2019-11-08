@@ -1,13 +1,13 @@
 #include "i2s_driver_stm32f4xx.h"
-
+#include <stdlib.h>
 #ifdef USE_DMA_I2S
 
 
-void i2s_transmit_dma(i2s_handle_t *hi2s, dma_handle_t * hdma)
+void i2s_transmit_dma(i2s_handle_t *hi2s, dma_handle_t *hdma, uint32_t *data, uint32_t data_len)
 {
-  hdma->p_memory0 = hi2s->p_tx_buffer;
+  hdma->p_memory0 = data;
   hdma->p_periph = hi2s->instance->DR;
-  hdma->data_length = hi2s->data_len;
+  hdma->data_length = data_len;
 
   if (hi2s->instance == I2S2)
   {
@@ -36,11 +36,11 @@ void i2s_transmit_dma(i2s_handle_t *hi2s, dma_handle_t * hdma)
   dma_transfer(hdma);
 }
 
-void i2s_receive_dma(i2s_handle_t *hi2s, dma_handle_t *hdma)
+void i2s_receive_dma(i2s_handle_t *hi2s, dma_handle_t *hdma, uint3_t *data, uint32_t data_len)
 {
-    hdma->p_memory0 = hi2s->p_rx_buffer;
+    hdma->p_memory0 = data;
     hdma->p_periph = hi2s->instance->DR;
-    hdma->data_length = hi2s->data_len;
+    hdma->data_length = data_len;
 
     if (hi2s->instance == I2S2)
     {
@@ -71,17 +71,17 @@ void i2s_receive_dma(i2s_handle_t *hi2s, dma_handle_t *hdma)
 #endif
 
 static void i2s_gpio_init(i2s_t *p_i2s);
-static void i2s_tx_phillips(i2s_handle_t *self);
-static void i2s_rx_phillips(i2s_handle_t *self);
-static void (*i2s_tx_msb)(i2s_handle_t *) = i2s_tx_phillips;
-static void (*i2s_rx_msb)(i2s_handle_t *) = i2s_rx_phillips;
-static void i2s_tx_lsb(i2s_handle_t *self);
-static void i2s_rx_lsb(i2s_handle_t *self);
-static void (*i2s_tx_pcm)(i2s_handle_t *) = i2s_tx_phillips;
-static void (*i2s_rx_pcm)(i2s_handle_t *) = i2x_rx_phillips;
+static void i2s_tx_phillips(void *v_self);
+static void i2s_rx_phillips(void *v_self);
+static void (*i2s_tx_msb)(void *) = i2s_tx_phillips;
+static void (*i2s_rx_msb)(void *) = i2s_rx_phillips;
+static void i2s_tx_lsb(void *v_self);
+static void i2s_rx_lsb(void *v_self);
+static void (*i2s_tx_pcm)(void *) = i2s_tx_phillips;
+static void (*i2s_rx_pcm)(void *) = i2s_rx_phillips;
 
 
-void i2s_init(i2s_handle_t *hi2s);
+void i2s_init(i2s_handle_t *hi2s)
 {
   // Init function takes the broader handle pointer, and first initialises
   // all of the prerequisites on an STM32F4 chip: RCC and GPIO_AF setup.
@@ -94,7 +94,7 @@ void i2s_init(i2s_handle_t *hi2s);
   // The device is then enabled.
 
     i2s_t *p_i2s =  (i2s_t *) hi2s->instance;
-    i2s_init_struct_t *p_init = (i2s_init_struct_t *) hi2s->init;
+    i2s_init_t *p_init = (i2s_init_t *) &hi2s->init;
 
     //RCC enables for the required GPIO ports
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN_Msk | RCC_AHB1ENR_GPIOBEN_Msk;
@@ -140,7 +140,7 @@ void i2s_init(i2s_handle_t *hi2s);
     else if (p_init->i2s_std == 1)
     {
       hi2s->i2s_tx = i2s_tx_msb;
-      hi2x->i2s_rx = i2s_rx_msb;
+      hi2s->i2s_rx = i2s_rx_msb;
     }
     else if (p_init->i2s_std == 2)
     {
@@ -155,6 +155,7 @@ void i2s_init(i2s_handle_t *hi2s);
 
     p_i2s->I2SCFGR |= SPI_I2SCFGR_I2SE_Msk; //enable peripheral
 }
+
 static void i2s_gpio_init(i2s_t *p_i2s)
 {
   // Makes writes to the appropriate GPIOAF registers to enable I2S2 or I2S3,
@@ -183,6 +184,44 @@ static void i2s_gpio_init(i2s_t *p_i2s)
   }
 }
 
+void i2s_transmit_blocking(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
+{
+  if (hi2s->state == I2S_STATE_FREE)
+  {
+    hi2s->p_tx_buffer = data;
+    hi2s->tx_len = data_len;
+    hi2s->p_rx_buffer = NULL;
+    hi2s->rx_len = 0;
+    hi2s->state = I2S_STATE_TX;
+    while(hi2s->tx_len != 0)
+    {
+      while(!(hi2s->instance->SR & SPI_SR_TXE_Msk));
+      (*hi2s->i2s_tx)(hi2s);
+    }
+    hi2s->state = I2S_STATE_FREE;
+  }
+}
+
+void i2s_receive_blocking(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
+{
+  if (hi2s->state == I2S_STATE_FREE)
+  {
+    hi2s->p_rx_buffer = data;
+    hi2s->rx_len = data_len;
+    hi2s->p_tx_buffer = NULL;
+    hi2s->tx_len = 0;
+    hi2s->state = I2S_STATE_RX;
+    while(hi2s->rx_len != 0)
+    {
+      while(!(hi2s->instance->SR & SPI_SR_RXNE_Msk));
+      (*hi2s->i2s_rx)(hi2s);
+    }
+    hi2s->state = I2S_STATE_FREE;
+  }
+}
+
+
+
 void i2s_transmit_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
 {
   // Begins an interrupt based i2s transmission as master.
@@ -192,7 +231,7 @@ void i2s_transmit_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
   // NOTE: the TXEIE enables the I2S device to request an interrupt, you must
   // activate the I2S NVIC IRQn to make the MCU responsd to the interrupt req.
   // IMPORTANT: WRAP this function in CRITICAL()
-  if (!state)
+
   hi2s->p_tx_buffer = data;
   hi2s->tx_len = data_len;
   hi2s->p_rx_buffer = NULL;
@@ -204,7 +243,7 @@ void i2s_transmit_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
   }
   else
   {
-    hi2s->state = I2S_STATE_NULL;
+    hi2s->state = I2S_STATE_FREE;
   }
 }
 
@@ -229,7 +268,7 @@ void i2s_receive_it(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
   }
   else
   {
-    hi2->state = I2S_STATE_NULL;
+    hi2s->state = I2S_STATE_FREE;
   }
 }
 
@@ -251,7 +290,9 @@ void i2s_irq_handler(i2s_handle_t *hi2s)
     }
     else if (hi2s->i2s_tx != 0U)
     {
+      hi2s->instance->CR2 &= ~(SPI_CR2_TXEIE_Msk);
       (*(hi2s->i2s_tx))(hi2s);
+      hi2s->instance->CR2 |= SPI_CR2_TXEIE_Msk;
     }
 
   }
@@ -260,24 +301,26 @@ void i2s_irq_handler(i2s_handle_t *hi2s)
   cmp2 = hi2s->instance->CR2 & SPI_CR2_RXNEIE_Msk;
   if (cmp1 != 0 && cmp2 != 0)
   {
-    if (hi2s->rx_Len == 0)
+    if (hi2s->rx_len == 0)
     {
       hi2s->instance->CR2 &= ~(SPI_CR2_RXNEIE_Msk);
       hi2s->state = I2S_STATE_FREE;
     }
     else if (hi2s->i2s_rx != 0U)
     {
+      hi2s->instance->CR2 &= ~(SPI_CR2_RXNEIE_Msk);
       (*(hi2s->i2s_rx))(hi2s);
+      hi2s->instance->CR2 |= SPI_CR2_RXNEIE_Msk;
     }
   }
 
 }
 
-static void i2s_tx_phillips(i2s_handle_t *self)
+static void i2s_tx_phillips(void *v_self)
 {
   // Places data in the DR register of the I2S device per the specifications
   // in chapter 20 of the reference manual.
-
+  i2s_handle_t * self = (i2s_handle_t *) v_self;
   if (self->init.data_len == 0)
   {
     //16bit. Channel length doesn't affect anything (see ref manual 20.4.3)
@@ -287,29 +330,26 @@ static void i2s_tx_phillips(i2s_handle_t *self)
   }
   else if (self->init.data_len == 1) //24bit data length
   {
-    self->instance->CR2 &= ~(SPI_CR2_TXEIE_Msk); //disable txe interrupt
     self->instance->DR = (uint16_t)( (0x00FFFF00UL & (*(self->p_tx_buffer))) >> 8U);
     while(self->instance->SR & SPI_SR_TXE_Msk == 0);
     self->instance->DR = (uint16_t)( (0x000000FFUL & (*(self->p_tx_buffer))) << 8U);
     self->p_tx_buffer++;
     self->tx_len--;
-    self->instance->CR2 |= (SPI_CR2_TXEIE_Msk); //re-enable txe interrupt
   }
   else if (self->init.data_len == 2) //32bit data Length
   {
-    self->instance->CR2 &= ~(SPI_CR2_TXEIE_Msk); //disable txe interrupt
     self->instance->DR = (uint16_t) ((0xFFFF0000UL & (*(self->p_tx_buffer))) >> 16U);
     while(self->instance->SR & SPI_SR_TXE_Msk == 0);
     self->instance->DR = (uint16_t) (0x0000FFFFUL & (*(self->p_tx_buffer)));
     self->p_tx_buffer++;
     self->tx_len--;
-    self->instance->CR2 |= (SPI_CR2_TXEIE_Msk); //re-enable txe interrupt
 
   }
 }
 
-static void i2s_rx_phillips(i2s_handle_t *self)
+static void i2s_rx_phillips(void *v_self)
 {
+  i2s_handle_t *self = (i2s_handle_t *) v_self;
     // Places data in the DR register of the I2S device per the specifications
     // in chapter 20 of the reference manual.
   if (self->init.data_len == 0)
@@ -322,29 +362,26 @@ static void i2s_rx_phillips(i2s_handle_t *self)
   else if (self->init.data_len == 1)
   {
     //24 bit data length
-    self->instance->CR2 &= ~(SPI_CR2_RXNEIE_Msk); //disable rnxe interrupt
     *(self->p_rx_buffer) = (self->instance->DR) << 8U;
-    while(self->instance->SR & SPI_SR_RNXE_Msk == 0);
+    while((self->instance->SR & SPI_SR_RXNE_Msk) == 0);
     *(self->p_rx_buffer) |= (self->instance->DR) >> 8U;
     self->p_rx_buffer++;
     self->rx_len--;
-    self->instance->CR2 |= (SPI_CR2_RXNEIE_Msk); //re-enable rnxe interrupt
   }
   else if (self->init.data_len == 2)
   {
     //32 bit data length.
-    self->instance->CR2 &= ~(SPI_CR2_RXNEIE_Msk); //disable rnxe interrupt
     *(self->p_rx_buffer) = (self->instance->DR) << 16U;
-    while(self->instance->SR & SPI_SR_RXNE_Msk == 0);
+    while((self->instance->SR & SPI_SR_RXNE_Msk) == 0);
     *(self->p_rx_buffer) |= self->instance->DR;
     self->p_rx_buffer++;
     self->rx_len--;
-    self->instance->CR2 |= (SPI_CR2_RXNEIE_Msk); //re-enable rnxe interrupt
   }
 }
 
-static void i2s_tx_lsb(i2s_handle_t *self)
+static void i2s_tx_lsb(void *v_self)
 {
+	i2s_handle_t * self = (i2s_handle_t *) v_self;
     // Places data in the DR register of the I2S device per the specifications
     // in chapter 20 of the reference manual.
     if (self->init.data_len == 0)
@@ -357,29 +394,26 @@ static void i2s_tx_lsb(i2s_handle_t *self)
 
     else if (self->init.data_len >= 1) //24bit data length
     {
-      self->instance->CR2 &= ~(SPI_CR2_TXEIE_Msk); //disable txe interrupt
       self->instance->DR = (uint16_t)( 0x00FF0000UL & (*(self->p_tx_buffer)) >> 16U);
       while(self->instance->SR & SPI_SR_TXE_Msk == 0);
       self->instance->DR = (uint16_t)( 0x0000FFFFUL & (*(self->p_tx_buffer)));
       self->p_tx_buffer++;
       self->tx_len--;
-      self->instance->CR2 |= (SPI_CR2_TXEIE_Msk); //re-enable txe interrupt
     }
     else if (self->init.data_len == 2) //32bit data Length
     {
-      self->instance->CR2 &= ~(SPI_CR2_TXEIE_Msk); //disable txe interrupt
       self->instance->DR = (uint16_t) (0xFFFF0000UL & (*(self->p_tx_buffer)) >> 16U);
       while(self->instance->SR & SPI_SR_TXE_Msk == 0);
       self->instance->DR = (uint16_t) (0x0000FFFFUL & (*(self->p_tx_buffer)));
       self->p_tx_buffer++;
       self->tx_len--;
-      self->instance->CR2 |= (SPI_CR2_TXEIE_Msk); //re-enable txe interrupt
 
     }
 }
 
-static void i2s_rx_lsb(i2s_handle_t *self)
+static void i2s_rx_lsb(void *v_self)
 {
+	i2s_handle_t *self = (i2s_handle_t *) v_self;
     // Places data in the DR register of the I2S device per the specifications
     // in chapter 20 of the reference manual.
   if (self->init.data_len == 0)
@@ -392,13 +426,11 @@ static void i2s_rx_lsb(i2s_handle_t *self)
   else if (self->init.data_len >= 1)
   {
     //24 bit and 32 bit data length can be processed identically
-    self->instance->CR2 &= ~(SPI_CR2_RXNEIE_Msk); //disable RXNE interrupt
     *(self->p_rx_buffer) = (self->instance->DR) << 16U;
     while(self->instance->SR & SPI_SR_RXNE_Msk == 0);
     *(self->p_rx_buffer) |= self->instance->DR;
     self->p_rx_buffer++;
     self->rx_len--;
-    self->instance->CR2 |= (SPI_CR2_RXNEIE_Msk); //re-enable the RXNE interrupt
   }
 }
 
@@ -454,12 +486,16 @@ void i2s_deinit(i2s_handle_t *hi2s)
     }
   }
 }
+#ifndef USE_DMA_I2S
 
-__weak void i2s_transmit_dma()
+void i2s_transmit_dma()
 {
 while(1);
 }
-__weak void i2s_receive_dma()
+
+void i2s_receive_dma()
 {
 while(1);
 }
+
+#endif
