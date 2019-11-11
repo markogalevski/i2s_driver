@@ -81,6 +81,13 @@ static void (*i2s_tx_pcm)(void *) = i2s_tx_phillips;
 static void (*i2s_rx_pcm)(void *) = i2s_rx_phillips;
 
 
+void i2s_generate_init(i2s_handle_t *hi2s)
+{
+	i2s_init_t local_init = {0};
+    hi2s->init = local_init;
+}
+
+
 void i2s_init(i2s_handle_t *hi2s)
 {
   // Init function takes the broader handle pointer, and first initialises
@@ -149,8 +156,8 @@ void i2s_init(i2s_handle_t *hi2s)
     }
     else if (p_init->i2s_std == 3)
     {
-      hi2s->i2s_tx = &i2s_tx_pcm;
-      hi2s->i2s_rx = &i2s_rx_pcm;
+      hi2s->i2s_tx = i2s_tx_pcm;
+      hi2s->i2s_rx = i2s_rx_pcm;
     }
 
     p_i2s->I2SCFGR |= SPI_I2SCFGR_I2SE_Msk; //enable peripheral
@@ -331,7 +338,7 @@ static void i2s_tx_phillips(void *v_self)
   else if (self->init.data_len == 1) //24bit data length
   {
     self->instance->DR = (uint16_t)( (0x00FFFF00UL & (*(self->p_tx_buffer))) >> 8U);
-    while(self->instance->SR & SPI_SR_TXE_Msk == 0);
+    while((self->instance->SR & SPI_SR_TXE_Msk) == 0);
     self->instance->DR = (uint16_t)( (0x000000FFUL & (*(self->p_tx_buffer))) << 8U);
     self->p_tx_buffer++;
     self->tx_len--;
@@ -339,7 +346,7 @@ static void i2s_tx_phillips(void *v_self)
   else if (self->init.data_len == 2) //32bit data Length
   {
     self->instance->DR = (uint16_t) ((0xFFFF0000UL & (*(self->p_tx_buffer))) >> 16U);
-    while(self->instance->SR & SPI_SR_TXE_Msk == 0);
+    while((self->instance->SR & SPI_SR_TXE_Msk) == 0);
     self->instance->DR = (uint16_t) (0x0000FFFFUL & (*(self->p_tx_buffer)));
     self->p_tx_buffer++;
     self->tx_len--;
@@ -395,7 +402,7 @@ static void i2s_tx_lsb(void *v_self)
     else if (self->init.data_len >= 1) //24bit data length
     {
       self->instance->DR = (uint16_t)( 0x00FF0000UL & (*(self->p_tx_buffer)) >> 16U);
-      while(self->instance->SR & SPI_SR_TXE_Msk == 0);
+      while((self->instance->SR & SPI_SR_TXE_Msk) == 0);
       self->instance->DR = (uint16_t)( 0x0000FFFFUL & (*(self->p_tx_buffer)));
       self->p_tx_buffer++;
       self->tx_len--;
@@ -403,7 +410,7 @@ static void i2s_tx_lsb(void *v_self)
     else if (self->init.data_len == 2) //32bit data Length
     {
       self->instance->DR = (uint16_t) (0xFFFF0000UL & (*(self->p_tx_buffer)) >> 16U);
-      while(self->instance->SR & SPI_SR_TXE_Msk == 0);
+      while((self->instance->SR & SPI_SR_TXE_Msk) == 0);
       self->instance->DR = (uint16_t) (0x0000FFFFUL & (*(self->p_tx_buffer)));
       self->p_tx_buffer++;
       self->tx_len--;
@@ -427,7 +434,7 @@ static void i2s_rx_lsb(void *v_self)
   {
     //24 bit and 32 bit data length can be processed identically
     *(self->p_rx_buffer) = (self->instance->DR) << 16U;
-    while(self->instance->SR & SPI_SR_RXNE_Msk == 0);
+    while((self->instance->SR & SPI_SR_RXNE_Msk) == 0);
     *(self->p_rx_buffer) |= self->instance->DR;
     self->p_rx_buffer++;
     self->rx_len--;
@@ -462,10 +469,10 @@ void i2s_deinit(i2s_handle_t *hi2s)
       if (hi2s->init.i2s_std == 2)
       {
         //stop with lsb 16 bit 32 extended
-        while(hi2s->rx_len > 1 || hi2s->instance->SR & SPI_SR_RXNE_Msk == 0);
+        while((hi2s->rx_len > 1 || hi2s->instance->SR & SPI_SR_RXNE_Msk) == 0);
         while(counter < 17) //wait for 17 cycles
         {
-          while(GPIOB->ODR & (0x01 << clock_B_pin) != 0);
+          while((GPIOB->ODR & (0x01 << clock_B_pin)) != 0);
           counter++;
         }
        hi2s->instance->I2SCFGR &= ~(SPI_I2SCFGR_I2SE_Msk);
@@ -473,15 +480,15 @@ void i2s_deinit(i2s_handle_t *hi2s)
       else
       {
         //stop with non-lsb 16 bit 32 extended
-        while(hi2s->rx_len != 0 || hi2s->instance->SR & SPI_SR_RXNE_Msk == 0); //wait for LAST rxne
-        while(GPIOB->ODR & (0x01 << clock_B_pin) != 0); //wait for one cycle
+        while((hi2s->rx_len != 0 || hi2s->instance->SR & SPI_SR_RXNE_Msk) == 0); //wait for LAST rxne
+        while((GPIOB->ODR & (0x01 << clock_B_pin)) != 0); //wait for one cycle
         hi2s->instance->I2SCFGR &= ~(SPI_I2SCFGR_I2SE_Msk);
       }
     }
     else
     {
-      while(hi2s->rx_len > 1 || hi2s->instance->SR & SPI_SR_RXNE_Msk == 0);
-      while(GPIOB->ODR & (0x01 << clock_B_pin) != 0); //wait for one cycle
+      while((hi2s->rx_len > 1 || hi2s->instance->SR & SPI_SR_RXNE_Msk) == 0);
+      while((GPIOB->ODR & (0x01 << clock_B_pin)) != 0); //wait for one cycle
       hi2s->instance->I2SCFGR &= ~(SPI_I2SCFGR_I2SE_Msk);
     }
   }

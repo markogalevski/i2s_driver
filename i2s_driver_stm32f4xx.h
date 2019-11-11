@@ -55,6 +55,8 @@ typedef struct
   void (*i2s_rx)(void *);
 } i2s_handle_t;
 
+void i2s_generate_init(i2s_handle_t *hi2s);
+
 void i2s_init(i2s_handle_t *hi2s);
 
 void i2s_transmit_blocking(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len);
