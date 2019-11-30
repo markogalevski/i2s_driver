@@ -1,11 +1,8 @@
-# i2s_driver_stm32f4xx - a very specific driver for a very specific use
+# i2s_driver_stm32f4xx - a generalised driver for a very specific use
 
 This is a driver I'm writing for my project, the Sitcom Machine, for which I will start a repository and Github Pages page once there is anything worth showing.
 
-This driver currently only has interrupt style transmission implemented, as that is what I was planning to use.
+A fledgling driver for the transmission of audio via i2s. Although initially designed simply for the i2s/spi peripheral on the stm32f4xx series of MCUs, I am moving towards the development of a common interface for all implementations to come.
 
-A DMA implementation is next, with a blocking implementation last to come.
-
-All communication is in master mode, as the Sitcom Machine merely pushes data via i2s to the audio codec on the STM32F411E Discovery.
-
-Addng tests via CppuTest could also be interesting.
+Contains blocking, dma, and interrupt implementations, although error checkng is pending. 
+A proper test framework is also desirable.
