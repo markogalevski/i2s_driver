@@ -2,11 +2,9 @@
 #define _I2S_H
 
 
-#include "stm32f411xe.h"
+
 #include "i2s_stm32f4xx_config.h"
 
-#define I2S2_BASE SPI2_BASE
-#define I2S3_BASE SPI3_BASE
 
 #define I2S_STATE_FREE 0
 #define I2S_STATE_TX 1

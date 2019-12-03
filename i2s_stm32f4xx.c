@@ -1,5 +1,9 @@
 #include <i2s_interface.h>
 #include <stdlib.h>
+#include "stm32f411xe.h"
+
+#define I2S2_BASE SPI2_BASE
+#define I2S3_BASE SPI3_BASE
 
 #ifdef USE_DMA_I2S
 
@@ -320,7 +324,7 @@ void i2s_irq_handler(i2s_handle_t *hi2s)
       *I2S_CR2[hi2s->instance] &= ~(SPI_CR2_TXEIE_Msk);
       hi2s->state = I2S_STATE_FREE;
     }
-    else if (hi2s->i2s_tx != 0U)
+    else if (hi2s->i2s_tx != NULL)
     {
       *I2S_CR2[hi2s->instance] &= ~(SPI_CR2_TXEIE_Msk);
       (*(hi2s->i2s_tx))(hi2s);
@@ -338,7 +342,7 @@ void i2s_irq_handler(i2s_handle_t *hi2s)
       *I2S_CR2[hi2s->instance] &= ~(SPI_CR2_RXNEIE_Msk);
       hi2s->state = I2S_STATE_FREE;
     }
-    else if (hi2s->i2s_rx != 0U)
+    else if (hi2s->i2s_rx != NULL)
     {
       *I2S_CR2[hi2s->instance] &= ~(SPI_CR2_RXNEIE_Msk);
       (*(hi2s->i2s_rx))(hi2s);
