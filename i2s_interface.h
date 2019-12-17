@@ -3,7 +3,7 @@
 
 
 
-#include "i2s_stm32f4xx_config.h"
+#include <i2s_stm32f411_config.h>
 
 
 #define I2S_STATE_FREE 0

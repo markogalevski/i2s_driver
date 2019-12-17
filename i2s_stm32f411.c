@@ -130,7 +130,17 @@ void i2s_init(i2s_handle_array_t *hi2s_array, const i2s_config_t *config_table)
     //RCC enables for the required GPIO ports
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN_Msk | RCC_AHB1ENR_GPIOBEN_Msk;
 
-    i2s_gpio_init(hi2s); // GPIO Alternate Function setup
+
+    //GPIO pins PB12, PB13, PB15 need  to be AF5 (0b0101 == 0x05) to work
+    //  in SPI/I2S Mode
+    // PB12: I2S2_WS
+    // PB13: I2S2_CK
+    // PB15: I2S2_SD
+
+    // GPIO pins PA15, PB3, and PB5 need to be AF6 (0b0110 == 0x06) to work
+    // PA15: I2S3_WS
+    // PB3: I2S3_CK
+    // PB5: I2S3_SD
 
 
     uint32_t config_reg = 0; //Selection of which SPI/I2S RCC to enable
@@ -167,6 +177,8 @@ void i2s_init(i2s_handle_array_t *hi2s_array, const i2s_config_t *config_table)
            | config_table[i2s_channel].prescaler;
       *I2S_PR[i2s_channel] = config_reg;
 
+      //TODO: Consider if this should just be done by hand as part of the handle before beginning a transfer?
+      //		Otherwise it muddies up the init function.
       if (config_table[i2s_channel].i2s_std == PHILLIPS_STD)
       {
         hi2s_array[i2s_channel]->i2s_tx = i2s_tx_phillips;
@@ -192,33 +204,7 @@ void i2s_init(i2s_handle_array_t *hi2s_array, const i2s_config_t *config_table)
     }
 }
 
-static void i2s_gpio_init(i2s_handle_t *h_i2s)
-{
-  // Makes writes to the appropriate GPIOAF registers to enable I2S2 or I2S3,
-  // as per their implementation in the stm32f411xe manual.
-  if (h_i2s->instance == I2S2)
-  {
-    //GPIO pins PB12, PB13, PB15 need  to be AF5 (0b0101 == 0x05) to work
-    //  in SPI/I2S Mode
-    // PB12: I2S2_WS
-    // PB13: I2S2_CK
-    // PB15: I2S2_SD
 
-    GPIOB->AFR[1] |= (0x05U) << (GPIO_AFRH_AFSEL12_Pos)
-                    | (0x05U) << (GPIO_AFRH_AFSEL13_Pos)
-                    | (0x05U) << (GPIO_AFRH_AFSEL15_Pos);
-  }
-    // GPIO pins PA15, PB3, and PB5 need to be AF6 (0b0110 == 0x06) to work
-    // PA15: I2S3_WS
-    // PB3: I2S3_CK
-    // PB5: I2S3_SD
-  else if (h_i2s->instance == I2S3)
-  {
-    GPIOA->AFR[1] |= (0x06U) << (GPIO_AFRH_AFSEL15_Pos);
-    GPIOB->AFR[0] |= (0x06U) << (GPIO_AFRL_AFSEL3_Pos)
-                    | (0x06U) << (GPIO_AFRL_AFSEL5_Pos);
-  }
-}
 
 void i2s_transmit_blocking(i2s_handle_t *hi2s, uint32_t *data, uint32_t data_len)
 {

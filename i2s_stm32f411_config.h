@@ -78,7 +78,7 @@ typedef enum
     ODD_PRESCALER = 1U
 }i2s_odd_prescaler_t;
 
-i2s_config_t * i2s_config_get(void);
+const i2s_config_t * i2s_config_get(void);
 
 #endif
 
