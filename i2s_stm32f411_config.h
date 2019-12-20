@@ -2,7 +2,16 @@
 #define _I2S_STM32F4XX_CFG
 
 #include <stdint.h>
-#include "common.h"
+
+
+#ifndef DISABLED
+#define DISABLED 0
+#endif
+
+#ifndef ENABLED
+#define ENABLED 1
+#endif
+
 typedef struct
 {
   uint32_t i2s_name;
@@ -69,8 +78,6 @@ typedef enum
 }i2s_channel_length_t;
 
 typedef uint8_t i2s_prescaler_t ;
-
-typedef enable_t i2s_master_clock_output_en_t ;
 
 typedef enum
 {
